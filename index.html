@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slack Remind テキストメイカー</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <style>
+    :root {
+      --purple: #4A154B;
+      --green: #2EB67D;
+      --yellow: #ECB22E;
+      --red: #E01E5A;
+      --blue: #36C5F0;
+      --bg: #f0eff0;
+      --card: #ffffff;
+      --text: #1d1c1d;
+      --text-sub: #616061;
+      --border: #ddd;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--purple);
+      color: white;
+      padding: 18px 24px 20px;
+    }
+    header .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    header h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; }
+    header p  { font-size: 13px; opacity: 0.75; }
+
+    .container {
+      max-width: 620px;
+      margin: 28px auto 48px;
+      padding: 0 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 20px 22px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    }
+
+    .card-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-sub);
+      margin-bottom: 14px;
+    }
+
+    /* タブ */
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .tab {
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: 2px solid var(--border);
+      background: white;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-sub);
+      transition: all .15s;
+      font-family: inherit;
+    }
+    .tab:hover { border-color: var(--purple); color: var(--purple); }
+    .tab.active { background: var(--purple); border-color: var(--purple); color: white; }
+
+    /* 入力フィールド */
+    .field {
+      width: 100%;
+      padding: 10px 13px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 15px;
+      font-family: inherit;
+      transition: border-color .15s;
+      outline: none;
+      background: white;
+      color: var(--text);
+    }
+    .field:focus { border-color: var(--purple); }
+    .field::placeholder { color: #aaa; }
+    textarea.field { resize: vertical; }
+
+    /* 頻度選択 */
+    .freq-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .freq-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .1s;
+      border: 2px solid transparent;
+    }
+    .freq-row:hover { background: #f8f5f8; }
+    .freq-row.selected { background: #faf0fa; border-color: #d9bfda; }
+
+    .freq-row input[type="radio"] {
+      margin-top: 2px;
+      width: 17px;
+      height: 17px;
+      accent-color: var(--purple);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .freq-name { font-size: 15px; font-weight: 600; line-height: 1; margin-bottom: 2px; }
+    .freq-desc { font-size: 12px; color: var(--text-sub); }
+
+    /* 曜日ボタン */
+    .days-wrap { margin-top: 10px; }
+    .days-row  { display: flex; gap: 5px; }
+
+    .day-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: white;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-sub);
+      transition: all .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+    }
+    .day-btn:hover { border-color: var(--purple); color: var(--purple); }
+    .day-btn.on   { background: var(--purple); border-color: var(--purple); color: white; }
+
+    /* 毎月の日付グリッド */
+    .month-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-top: 10px;
+    }
+    .mday {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: white;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      transition: all .12s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+    }
+    .mday:hover { border-color: var(--purple); background: #faf0fa; }
+    .mday.on    { background: var(--purple); border-color: var(--purple); color: white; }
+
+    /* ===== 固定日カレンダー ===== */
+    .cal-wrap { margin-top: 10px; }
+
+    .cal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .cal-nav {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: white;
+      cursor: pointer;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .12s;
+      color: var(--text);
+      font-family: inherit;
+    }
+    .cal-nav:hover:not(:disabled) { border-color: var(--purple); color: var(--purple); }
+    .cal-nav:disabled { opacity: 0.25; cursor: default; }
+
+    .cal-month-label { font-size: 15px; font-weight: 700; }
+
+    .cal-dow {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      margin-bottom: 2px;
+    }
+    .cal-dow span {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-sub);
+      padding: 3px 0;
+    }
+    .cal-dow .dow-sun { color: var(--red); }
+    .cal-dow .dow-sat { color: var(--blue); }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+
+    .cal-cell {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      transition: all .12s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+    }
+    .cal-cell:hover:not(.cal-past):not(.cal-empty) { border-color: var(--purple); background: #faf0fa; }
+    .cal-cell.cal-today   { border-color: var(--border); font-weight: 800; }
+    .cal-cell.cal-selected { background: var(--purple); border-color: var(--purple); color: white !important; }
+    .cal-cell.cal-past    { color: #ccc; cursor: default; }
+    .cal-cell.cal-empty   { cursor: default; }
+    .cal-cell.cal-sun:not(.cal-selected):not(.cal-past) { color: var(--red); }
+    .cal-cell.cal-sat:not(.cal-selected):not(.cal-past) { color: var(--blue); }
+
+    /* 時刻 */
+    .time-row { display: flex; align-items: center; gap: 8px; }
+
+    .time-select {
+      padding: 9px 12px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 22px;
+      font-weight: 700;
+      font-family: 'Menlo', 'Consolas', monospace;
+      background: white;
+      cursor: pointer;
+      outline: none;
+      transition: border-color .15s;
+      text-align: center;
+      color: var(--text);
+    }
+    .time-select:focus { border-color: var(--purple); }
+    .time-sep { font-size: 22px; font-weight: 800; color: var(--text-sub); }
+
+    /* 出力 */
+    .output {
+      background: #1a1a1a;
+      border-radius: var(--radius);
+      padding: 22px;
+      margin-bottom: 12px;
+    }
+    .output-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--green);
+      margin-bottom: 12px;
+    }
+    .command-text {
+      font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #e8e8e8;
+      word-break: break-all;
+      white-space: pre-wrap;
+      margin-bottom: 16px;
+    }
+    .empty-hint { font-size: 14px; color: #555; font-style: italic; }
+
+    .copy-btn {
+      background: var(--green);
+      color: white;
+      border: none;
+      border-radius: 7px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .copy-btn:hover { background: #27a36b; transform: translateY(-1px); }
+    .copy-btn:active { transform: translateY(0); }
+    .copy-btn.done { background: var(--yellow); color: #1d1c1d; }
+
+    .note { font-size: 12px; color: var(--text-sub); margin-top: 6px; }
+
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body x-data="app()" x-init="init()" x-cloak>
+
+  <header>
+    <div class="logo">
+      <svg width="22" height="22" viewBox="0 0 54 54" fill="none">
+        <path d="M19.7 32.6a5 5 0 1 1-5-5h5v5z" fill="#E01E5A"/>
+        <path d="M22.2 32.6a5 5 0 0 1 10 0v12.5a5 5 0 0 1-10 0V32.6z" fill="#E01E5A"/>
+        <path d="M27.2 19.7a5 5 0 1 1 5-5v5h-5z" fill="#36C5F0"/>
+        <path d="M27.2 22.2a5 5 0 0 1 0 10H14.7a5 5 0 0 1 0-10h12.5z" fill="#36C5F0"/>
+        <path d="M40.1 27.2a5 5 0 1 1 5 5h-5v-5z" fill="#2EB67D"/>
+        <path d="M37.6 27.2a5 5 0 0 1-10 0V14.7a5 5 0 0 1 10 0v12.5z" fill="#2EB67D"/>
+        <path d="M32.6 40.1a5 5 0 1 1-5 5v-5h5z" fill="#ECB22E"/>
+        <path d="M32.6 37.6a5 5 0 0 1 0-10h12.5a5 5 0 0 1 0 10H32.6z" fill="#ECB22E"/>
+      </svg>
+      <h1>Slack Remind テキストメイカー</h1>
+    </div>
+    <p>ぽちぽちするだけで /remind コマンドを生成できます</p>
+  </header>
+
+  <div class="container">
+
+    <!-- 宛先 -->
+    <div class="card">
+      <div class="card-label">誰に？</div>
+      <div class="tabs" style="margin-bottom: 12px;">
+        <button class="tab" :class="{ active: targetType === 'me' }"      @click="targetType = 'me'">自分</button>
+        <button class="tab" :class="{ active: targetType === 'channel' }" @click="targetType = 'channel'">#チャンネル</button>
+      </div>
+      <template x-if="targetType === 'channel'">
+        <div>
+          <input
+            class="field"
+            type="text"
+            placeholder="チャンネル名（例: general）"
+            x-model="targetName"
+          >
+        </div>
+      </template>
+    </div>
+
+    <!-- メッセージ -->
+    <div class="card">
+      <div class="card-label">何を？（リマインドの内容）</div>
+      <textarea
+        class="field"
+        rows="2"
+        placeholder="週次MTGの準備をする"
+        x-model="message"
+      ></textarea>
+    </div>
+
+    <!-- 頻度 -->
+    <div class="card">
+      <div class="card-label">いつ？（繰り返しパターン）</div>
+      <div class="freq-list">
+
+        <!-- 毎日 -->
+        <label class="freq-row" :class="{ selected: frequency === 'daily' }">
+          <input type="radio" name="freq" value="daily" x-model="frequency">
+          <div style="flex:1">
+            <div class="freq-name">毎日</div>
+            <div class="freq-desc">every day</div>
+          </div>
+        </label>
+
+        <!-- 毎週 -->
+        <label class="freq-row" :class="{ selected: frequency === 'weekly' }">
+          <input type="radio" name="freq" value="weekly" x-model="frequency">
+          <div style="flex:1">
+            <div class="freq-name">毎週</div>
+            <div class="freq-desc">every [曜日]　複数選択OK</div>
+            <div class="days-wrap" x-show="frequency === 'weekly'" x-transition>
+              <div class="days-row">
+                <template x-for="d in days" :key="d.en">
+                  <button
+                    type="button"
+                    class="day-btn"
+                    :class="{ on: weeklyDays.includes(d.en) }"
+                    @click="toggleWeeklyDay(d.en)"
+                    x-text="d.ja"
+                  ></button>
+                </template>
+              </div>
+            </div>
+          </div>
+        </label>
+
+        <!-- 隔週 -->
+        <label class="freq-row" :class="{ selected: frequency === 'biweekly' }">
+          <input type="radio" name="freq" value="biweekly" x-model="frequency">
+          <div style="flex:1">
+            <div class="freq-name">隔週</div>
+            <div class="freq-desc">every other [曜日]　1曜日を選択</div>
+            <div class="days-wrap" x-show="frequency === 'biweekly'" x-transition>
+              <div class="days-row">
+                <template x-for="d in days" :key="d.en">
+                  <button
+                    type="button"
+                    class="day-btn"
+                    :class="{ on: biweeklyDay === d.en }"
+                    @click="biweeklyDay = d.en"
+                    x-text="d.ja"
+                  ></button>
+                </template>
+              </div>
+            </div>
+          </div>
+        </label>
+
+        <!-- 毎月 -->
+        <label class="freq-row" :class="{ selected: frequency === 'monthly' }">
+          <input type="radio" name="freq" value="monthly" x-model="frequency">
+          <div style="flex:1">
+            <div class="freq-name">毎月</div>
+            <div class="freq-desc">every month on the [日]th</div>
+            <div x-show="frequency === 'monthly'" x-transition>
+              <div class="month-grid">
+                <template x-for="d in 28" :key="d">
+                  <button
+                    type="button"
+                    class="mday"
+                    :class="{ on: monthDay === d }"
+                    @click="monthDay = d"
+                    x-text="d"
+                  ></button>
+                </template>
+              </div>
+              <p class="note">※ 29〜31日はSlackが月によって動作が不安定なため28日まで</p>
+            </div>
+          </div>
+        </label>
+
+        <!-- 一度だけ（固定日） -->
+        <label class="freq-row" :class="{ selected: frequency === 'onetime' }">
+          <input type="radio" name="freq" value="onetime" x-model="frequency">
+          <div style="flex:1">
+            <div class="freq-name">一度だけ（固定日）</div>
+            <div class="freq-desc">on [月] [日]　カレンダーで日付を選択</div>
+            <div class="cal-wrap" x-show="frequency === 'onetime'" x-transition>
+
+              <!-- カレンダーヘッダー -->
+              <div class="cal-header">
+                <button
+                  type="button"
+                  class="cal-nav"
+                  @click.stop="calPrevMonth()"
+                  :disabled="calIsCurrentMonth"
+                >&#8249;</button>
+                <span class="cal-month-label" x-text="calYear + '年' + calMonthNamesJa[calMonth]"></span>
+                <button
+                  type="button"
+                  class="cal-nav"
+                  @click.stop="calNextMonth()"
+                >&#8250;</button>
+              </div>
+
+              <!-- 曜日ヘッダー -->
+              <div class="cal-dow">
+                <span class="dow-sun">日</span>
+                <span>月</span>
+                <span>火</span>
+                <span>水</span>
+                <span>木</span>
+                <span>金</span>
+                <span class="dow-sat">土</span>
+              </div>
+
+              <!-- 日付グリッド -->
+              <div class="cal-grid">
+                <template x-for="(cell, idx) in calCells" :key="idx">
+                  <button
+                    type="button"
+                    class="cal-cell"
+                    :class="{
+                      'cal-empty':    !cell.day,
+                      'cal-past':     cell.past,
+                      'cal-today':    cell.today,
+                      'cal-selected': oneTimeDay === cell.day && !cell.empty,
+                      'cal-sun':      cell.dow === 0,
+                      'cal-sat':      cell.dow === 6,
+                    }"
+                    @click.stop="if (cell.day && !cell.past) oneTimeDay = cell.day"
+                    x-text="cell.day || ''"
+                  ></button>
+                </template>
+              </div>
+
+              <p class="note" x-show="oneTimeDay" x-text="'選択中: ' + calYear + '年' + calMonthNamesJa[calMonth] + oneTimeDay + '日'"></p>
+            </div>
+          </div>
+        </label>
+
+      </div>
+    </div>
+
+    <!-- 時刻 -->
+    <div class="card">
+      <div class="card-label">何時？</div>
+      <div class="time-row">
+        <select class="time-select" x-model="hour" style="width: 78px;">
+          <template x-for="h in hours" :key="h">
+            <option :value="h" x-text="h"></option>
+          </template>
+        </select>
+        <span class="time-sep">:</span>
+        <select class="time-select" x-model="minute" style="width: 78px;">
+          <template x-for="m in minutes" :key="m">
+            <option :value="m" x-text="m"></option>
+          </template>
+        </select>
+        <span style="font-size:14px; color: var(--text-sub); margin-left:4px;" x-text="parseInt(hour) < 12 ? '午前' : '午後'"></span>
+      </div>
+    </div>
+
+    <!-- 出力 -->
+    <div class="output">
+      <div class="output-label">✦ 生成されたコマンド</div>
+      <template x-if="command">
+        <div>
+          <div class="command-text" x-text="command"></div>
+          <button class="copy-btn" :class="{ done: copied }" @click="copyCommand()">
+            <span x-text="copied ? '✓ コピー済み！' : '📋 コピーする'"></span>
+          </button>
+        </div>
+      </template>
+      <template x-if="!command">
+        <div class="empty-hint">上のフォームを入力するとコマンドが生成されます</div>
+      </template>
+    </div>
+
+    <!-- ヒント -->
+    <div class="card" style="background: #fffbf0; border-color: #f0e0b0;">
+      <div class="card-label" style="color: #8a6800;">使い方</div>
+      <ol style="font-size: 13px; color: #5a4800; padding-left: 18px; line-height: 2;">
+        <li>上のフォームをぽちぽちして設定する</li>
+        <li>「コピーする」ボタンを押す</li>
+        <li>Slackの任意のチャンネルのメッセージ欄に貼り付けて送信</li>
+      </ol>
+      <p style="font-size: 12px; color: #8a6800; margin-top: 8px;">
+        Slackのリマインドはワークスペースのタイムゾーン設定に従います。
+      </p>
+    </div>
+
+  </div>
+
+  <script>
+    function app() {
+      return {
+        // 宛先
+        targetType: 'me',
+        targetName: '',
+
+        // メッセージ
+        message: '',
+
+        // 頻度
+        frequency: 'weekly',
+        weeklyDays: ['Monday'],
+        biweeklyDay: 'Monday',
+        monthDay: 1,
+
+        // 固定日カレンダー
+        calYear: 0,
+        calMonth: 0,
+        oneTimeDay: null,
+
+        // 時刻
+        hour: '09',
+        minute: '00',
+        copied: false,
+
+        // 定数
+        days: [
+          { ja: '月', en: 'Monday'    },
+          { ja: '火', en: 'Tuesday'   },
+          { ja: '水', en: 'Wednesday' },
+          { ja: '木', en: 'Thursday'  },
+          { ja: '金', en: 'Friday'    },
+          { ja: '土', en: 'Saturday'  },
+          { ja: '日', en: 'Sunday'    },
+        ],
+        calMonthNamesJa: ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+        calMonthNamesEn: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+
+        hours:   Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')),
+        minutes: ['00', '15', '30', '45'],
+
+        init() {
+          const now = new Date();
+          this.calYear  = now.getFullYear();
+          this.calMonth = now.getMonth();
+        },
+
+        // カレンダー操作
+        get calIsCurrentMonth() {
+          const now = new Date();
+          return this.calYear === now.getFullYear() && this.calMonth === now.getMonth();
+        },
+
+        calPrevMonth() {
+          if (this.calIsCurrentMonth) return;
+          if (this.calMonth === 0) { this.calYear--; this.calMonth = 11; }
+          else this.calMonth--;
+          this.oneTimeDay = null;
+        },
+
+        calNextMonth() {
+          if (this.calMonth === 11) { this.calYear++; this.calMonth = 0; }
+          else this.calMonth++;
+          this.oneTimeDay = null;
+        },
+
+        get calCells() {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const firstDow  = new Date(this.calYear, this.calMonth, 1).getDay(); // 0=Sun
+          const daysInMonth = new Date(this.calYear, this.calMonth + 1, 0).getDate();
+
+          const cells = [];
+          // 1日より前の空白
+          for (let i = 0; i < firstDow; i++) {
+            cells.push({ day: null, past: false, today: false, dow: null });
+          }
+          // 日付セル
+          for (let d = 1; d <= daysInMonth; d++) {
+            const date = new Date(this.calYear, this.calMonth, d);
+            cells.push({
+              day:   d,
+              past:  date < today,
+              today: date.getTime() === today.getTime(),
+              dow:   date.getDay(),
+            });
+          }
+          return cells;
+        },
+
+        // 毎週曜日トグル
+        toggleWeeklyDay(day) {
+          const idx = this.weeklyDays.indexOf(day);
+          if (idx !== -1) {
+            if (this.weeklyDays.length > 1) this.weeklyDays.splice(idx, 1);
+          } else {
+            this.weeklyDays.push(day);
+            const order = this.days.map(d => d.en);
+            this.weeklyDays.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+          }
+        },
+
+        // ユーティリティ
+        ordinal(n) {
+          const s = ['th', 'st', 'nd', 'rd'];
+          const v = n % 100;
+          return s[(v - 20) % 10] || s[v] || s[0];
+        },
+
+        toSlackTime(h, m) {
+          const hNum = parseInt(h);
+          const ampm = hNum < 12 ? 'am' : 'pm';
+          const h12  = hNum % 12 || 12;
+          return `${h12}:${m}${ampm}`;
+        },
+
+        // コマンド生成
+        get command() {
+          if (!this.message.trim()) return '';
+          if (this.targetType === 'channel' && !this.targetName.trim()) return '';
+          if (this.frequency === 'weekly'  && this.weeklyDays.length === 0) return '';
+          if (this.frequency === 'onetime' && !this.oneTimeDay) return '';
+
+          const target = this.targetType === 'me'
+            ? 'me'
+            : `#${this.targetName.trim().replace(/^#/, '')}`;
+
+          const t = this.toSlackTime(this.hour, this.minute);
+
+          let when;
+          if (this.frequency === 'daily') {
+            when = `every day at ${t}`;
+          } else if (this.frequency === 'weekly') {
+            when = `every ${this.weeklyDays.join(' and ')} at ${t}`;
+          } else if (this.frequency === 'biweekly') {
+            when = `every other ${this.biweeklyDay} at ${t}`;
+          } else if (this.frequency === 'monthly') {
+            const n = this.monthDay;
+            when = `every month on the ${n}${this.ordinal(n)} at ${t}`;
+          } else {
+            // onetime
+            const n       = this.oneTimeDay;
+            const monthEn = this.calMonthNamesEn[this.calMonth];
+            const now     = new Date();
+            const yearSuffix = this.calYear !== now.getFullYear() ? ` ${this.calYear}` : '';
+            when = `on ${monthEn} ${n}${this.ordinal(n)}${yearSuffix} at ${t}`;
+          }
+
+          return `/remind ${target} "${this.message.trim()}" ${when}`;
+        },
+
+        copyCommand() {
+          if (!this.command) return;
+          navigator.clipboard.writeText(this.command).then(() => {
+            this.copied = true;
+            setTimeout(() => { this.copied = false; }, 2000);
+          });
+        },
+      };
+    }
+  </script>
+</body>
+</html>
